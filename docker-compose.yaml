@@ -1,0 +1,45 @@
+services:
+  interpretador:
+    build:
+      context: ./interpretador
+      dockerfile: I.dockerfile
+    ports:
+      - "5000:5000/udp"
+      - "8080:8080/tcp"
+
+  sensor_temp:
+    build:
+      context: ./sensor
+      dockerfile: S.dockerfile
+    depends_on:
+      - interpretador
+
+  sensor_umid:
+    build:
+      context: ./sensor
+      dockerfile: S.dockerfile
+    depends_on:
+      - interpretador
+
+  atuador_ac:
+    build:
+      context: ./atuador
+      dockerfile: A.dockerfile
+    depends_on:
+      - interpretador
+
+  irrigador:
+    build:
+      context: ./atuador
+      dockerfile: A.dockerfile
+    depends_on:
+      - interpretador
+
+  cliente:
+    build:
+      context: ./cliente
+      dockerfile: C.dockerfile
+    stdin_open: true
+    tty: true
+    depends_on:
+      - interpretador
