@@ -67,8 +67,29 @@ func enviarTCP(target, msg string) {
 }
 
 func enviarUDPCliente(target, msg string) {
-	addr, _ := net.ResolveUDPAddr("udp", target)
-	c, _ := net.DialUDP("udp", nil, addr)
-	c.Write([]byte(msg))
-	c.Close()
+// Verifica se o target não está vazio
+    if target == "" {
+        fmt.Println("[ERRO] Target do cliente vazio. Ignorando envio.")
+        return
+    }
+
+    // Resolver o endereço UDP
+    addr, err := net.ResolveUDPAddr("udp", target)
+    if err != nil {
+        fmt.Printf("[ERRO] Falha ao resolver endereço %s: %v\n", target, err)
+        return
+    }
+    
+    // Abre a conexão
+    c, err := net.DialUDP("udp", nil, addr)
+    if err != nil {
+        fmt.Printf("[ERRO] Falha ao conectar via UDP: %v\n", err)
+        return
+    }
+    defer c.Close()
+
+    _, err = c.Write([]byte(msg))
+    if err != nil {
+        fmt.Printf("[ERRO] Falha ao escrever dados: %v\n", err)
+    }
 }
