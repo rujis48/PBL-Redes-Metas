@@ -12,7 +12,6 @@ var temperaturaAtual = 18
 var acLigado = false
 
 func main() {
-	// 1. Goroutine para ouvir o status do AC enviado pelo Interpretador
 	go func() {
 		addr, _ := net.ResolveUDPAddr("udp", ":6000") // Porta para status
 		conn, _ := net.ListenUDP("udp", addr)
@@ -28,7 +27,6 @@ func main() {
 		}
 	}()
 
-	// 2. Loop principal de simulação física
 	addr, _ := net.ResolveUDPAddr("udp", "interpretador:5000")
 	conn, _ := net.DialUDP("udp", nil, addr)
 
