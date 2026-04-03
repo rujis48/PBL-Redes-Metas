@@ -8,14 +8,33 @@ import (
 	"strings"
 )
 
+var valvulaAberta bool = false // Estado da Irrigação
+
 func main() {
 	ln, _ := net.Listen("tcp", ":8070")
+	fmt.Println("[IRRIGADOR] Atuador iniciado. Válvula: FECHADA")
+
 	for {
 		conn, _ := ln.Accept()
 		msg, _ := bufio.NewReader(conn).ReadString('\n')
-		umid, _ := strconv.Atoi(strings.TrimSpace(msg))
-		if umid < 40 { fmt.Printf("[IRRIGADOR] LIGADO (%d%%)\n", umid)
-		} else { fmt.Printf("[IRRIGADOR] DESLIGADO (%d%%)\n", umid) }
+		comando := strings.TrimSpace(msg)
+
+		if comando == "LIGAR" {
+			valvulaAberta = true
+		} else if comando == "DESLIGAR" {
+			valvulaAberta = false
+		} else {
+			umid, err := strconv.Atoi(comando)
+			if err == nil {
+				if umid < 40 {
+					valvulaAberta = true
+				} else if umid > 60 {
+					valvulaAberta = false
+				}
+			}
+		}
+
+		fmt.Printf("[STATUS IRRIGADOR] Válvula Aberta: %v\n", valvulaAberta)
 		conn.Close()
 	}
 }

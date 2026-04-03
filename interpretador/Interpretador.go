@@ -51,8 +51,28 @@ func servidorCliente() {
 			defer c.Close()
 			msg, _ := bufio.NewReader(c).ReadString('\n')
 			cmd := strings.TrimSpace(msg)
-			if cmd == "AUTO_ON" { modoAutomatico = true } 
-			if cmd == "AUTO_OFF" { modoAutomatico = false }
+
+			switch cmd {
+			case "AUTO_ON":
+				modoAutomatico = true
+			case "AUTO_OFF":
+				modoAutomatico = false
+			
+			// Comandos Manuais (Só funcionam se modoAutomatico for false, ou você pode permitir override)
+			case "AC_ON":
+				fmt.Println("[MANUAL] Ligando AC...")
+				enviarTCP("atuador_ac:8070", "LIGAR") 
+			case "AC_OFF":
+				fmt.Println("[MANUAL] Desligando AC...")
+				enviarTCP("atuador_ac:8070", "DESLIGAR")
+			case "IRRIG_ON":
+				fmt.Println("[MANUAL] Ligando Irrigador...")
+				enviarTCP("irrigador:8070", "LIGAR")
+			case "IRRIG_OFF":
+				fmt.Println("[MANUAL] Desligando Irrigador...")
+				enviarTCP("irrigador:8070", "DESLIGAR")
+			}
+
 			fmt.Printf("[TCP] Comando Cliente: %s (Auto: %v)\n", cmd, modoAutomatico)
 		}(conn)
 	}
