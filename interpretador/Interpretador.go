@@ -5,15 +5,20 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"time"
 )
 
-var modoAutomatico = true
+var (
+	modoAutomatico = true
+	filtroCliente  = "AMBOS" // Controle de fluxo externo
+)
 
 func main() {
 	go servidorSensores()
 	go servidorCliente()
 
-	fmt.Println("Interpretador Online: Sensores(5000/UDP), AC(8070/TCP), Irrigador(8070/TCP), Cliente(8080/TCP)")
+	fmt.Println("\033[34m[INTERPRETADOR]\033[0m Online e Roteando...")
+	fmt.Println("-> UDP:5000 (Sensores) | TCP:8080 (Cliente)")
 	select {}
 }
 
@@ -26,20 +31,34 @@ func servidorSensores() {
 	for {
 		n, _, _ := conn.ReadFromUDP(buf)
 		msg := strings.TrimSpace(string(buf[:n]))
+		
 		partes := strings.Split(msg, ":")
 		if len(partes) < 2 { continue }
-
 		tipo, valor := partes[0], partes[1]
-		fmt.Printf("[UDP] Recebido %s: %s\n", tipo, valor)
 
+		// --- LÓGICA DE FILTRO EXTERNO PARA O CLIENTE ---
+		enviarParaCliente := false
+		switch filtroCliente {
+		case "AMBOS":
+			enviarParaCliente = true
+		case "TEMP":
+			if tipo == "TEMP" { enviarParaCliente = true }
+		case "UMID":
+			if tipo == "UMID" { enviarParaCliente = true }
+		}
+
+		if enviarParaCliente {
+			enviarUDPCliente("cliente:7000", msg)
+		}
+
+		// --- LÓGICA AUTOMÁTICA ---
 		if modoAutomatico {
 			if tipo == "TEMP" {
-				enviarTCP("atuador_ac:8070", valor)
+				enviarEConfirmarTCP("atuador_ac:8070", valor)
 			} else if tipo == "UMID" {
-				enviarTCP("irrigador:8070", valor)
+				enviarEConfirmarTCP("irrigador:8070", valor)
 			}
 		}
-		enviarUDPCliente("cliente:7000", msg)
 	}
 }
 
@@ -53,63 +72,66 @@ func servidorCliente() {
 			cmd := strings.TrimSpace(msg)
 
 			switch cmd {
+			case "VER_TEMP":
+				filtroCliente = "TEMP"
+			case "VER_UMID":
+				filtroCliente = "UMID"
+			case "VER_AMBOS":
+				filtroCliente = "AMBOS"
 			case "AUTO_ON":
 				modoAutomatico = true
 			case "AUTO_OFF":
 				modoAutomatico = false
-			
-			// Comandos Manuais (Só funcionam se modoAutomatico for false, ou você pode permitir override)
 			case "AC_ON":
-				fmt.Println("[MANUAL] Ligando AC...")
-				enviarTCP("atuador_ac:8070", "LIGAR") 
+				enviarEConfirmarTCP("atuador_ac:8070", "LIGAR")
 			case "AC_OFF":
-				fmt.Println("[MANUAL] Desligando AC...")
-				enviarTCP("atuador_ac:8070", "DESLIGAR")
+				enviarEConfirmarTCP("atuador_ac:8070", "DESLIGAR")
 			case "IRRIG_ON":
-				fmt.Println("[MANUAL] Ligando Irrigador...")
-				enviarTCP("irrigador:8070", "LIGAR")
+				enviarEConfirmarTCP("irrigador:8070", "LIGAR")
 			case "IRRIG_OFF":
-				fmt.Println("[MANUAL] Desligando Irrigador...")
-				enviarTCP("irrigador:8070", "DESLIGAR")
+				enviarEConfirmarTCP("irrigador:8070", "DESLIGAR")
 			}
-
-			fmt.Printf("[TCP] Comando Cliente: %s (Auto: %v)\n", cmd, modoAutomatico)
+			fmt.Printf("[LOG] Cliente definiu: %s | Auto: %v\n", cmd, modoAutomatico)
 		}(conn)
 	}
 }
 
-func enviarTCP(target, msg string) {
-	conn, err := net.Dial("tcp", target)
+func enviarEConfirmarTCP(target, msg string) {
+	conn, err := net.DialTimeout("tcp", target, 2*time.Second)
+	if err != nil { return }
+	defer conn.Close()
+
+	fmt.Fprintf(conn, msg+"\n")
+
+	// Espera o Atuador responder (Feedback Síncrono)
+	resposta, err := bufio.NewReader(conn).ReadString('\n')
 	if err == nil {
-		fmt.Fprintf(conn, msg+"\n")
-		conn.Close()
+		status := strings.TrimSpace(resposta)
+		if status != "" {
+			// Notifica Cliente sobre a mudança de estado (ON/OFF)
+			enviarUDPCliente("cliente:7000", status)
+			// Se for AC, notifica o sensor para mudar a temperatura física
+			if strings.Contains(status, "AC") {
+				avisarSensorFisico("sensor_temp:6000", status)
+			}
+		}
 	}
 }
 
 func enviarUDPCliente(target, msg string) {
-// Verifica se o target não está vazio
-    if target == "" {
-        fmt.Println("[ERRO] Target do cliente vazio. Ignorando envio.")
-        return
-    }
+	addr, _ := net.ResolveUDPAddr("udp", target)
+	c, err := net.DialUDP("udp", nil, addr)
+	if err == nil {
+		c.Write([]byte(msg))
+		c.Close()
+	}
+}
 
-    // Resolver o endereço UDP
-    addr, err := net.ResolveUDPAddr("udp", target)
-    if err != nil {
-        fmt.Printf("[ERRO] Falha ao resolver endereço %s: %v\n", target, err)
-        return
-    }
-    
-    // Abre a conexão
-    c, err := net.DialUDP("udp", nil, addr)
-    if err != nil {
-        fmt.Printf("[ERRO] Falha ao conectar via UDP: %v\n", err)
-        return
-    }
-    defer c.Close()
-
-    _, err = c.Write([]byte(msg))
-    if err != nil {
-        fmt.Printf("[ERRO] Falha ao escrever dados: %v\n", err)
-    }
+func avisarSensorFisico(target, status string) {
+	addr, _ := net.ResolveUDPAddr("udp", target)
+	c, err := net.DialUDP("udp", nil, addr)
+	if err == nil {
+		c.Write([]byte(status))
+		c.Close()
+	}
 }
