@@ -20,15 +20,14 @@ func main() {
 		msg, _ := bufio.NewReader(conn).ReadString('\n')
 		comando := strings.TrimSpace(msg)
 
-		// LOG DE DEBUG: Importante para você ver o que chegou no container
-		fmt.Printf("[DEBUG] Recebido: '%s'\n", comando)
-
 		if comando == "LIGAR" || comando == "AC_ON" {
 			estaLigado = true
 			fmt.Println("COMANDO MANUAL: LIGANDO")
+
 		} else if comando == "DESLIGAR" || comando == "AC_OFF" {
 			estaLigado = false
 			fmt.Println("COMANDO MANUAL: DESLIGANDO")
+
 		} else {
 			// Se não for comando de texto, tentamos ler como temperatura (número)
 			temp, err := strconv.Atoi(comando)
@@ -52,7 +51,6 @@ func main() {
 
         status := "OFF"
         if estaLigado { status = "ON" }
-        fmt.Printf("[ESTADO ATUAL] Ar-Condicionado: %s\n", status)
         
         conn.Close()
     }

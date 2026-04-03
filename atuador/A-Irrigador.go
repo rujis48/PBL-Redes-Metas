@@ -21,8 +21,12 @@ func main() {
 
 		if comando == "LIGAR" || comando == "IRRIG_ON" {
 			estaLigado = true
+			fmt.Println("COMANDO MANUAL: LIGANDO")			
+
 		} else if comando == "DESLIGAR" || comando == "IRRIG_OFF" {
 			estaLigado = false
+			fmt.Println("COMANDO MANUAL: DESLIGANDO")
+			
 		} else {
 			umid, err := strconv.Atoi(comando)
 			if err == nil {
@@ -31,6 +35,8 @@ func main() {
 				} else if umid > 75 {
 					estaLigado = false
 				}
+			} else {
+				fmt.Printf("[ERRO] Mensagem inválida: %s\n", comando)
 			}
 		}
 
