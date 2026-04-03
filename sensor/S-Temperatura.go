@@ -35,10 +35,10 @@ func main() {
 	for {
 		if acLigado {
 			// Se o ar está ligado, a temperatura desce (pode não descer ou descer de maneira aleatoria entre -1 e -2)
-			temperaturaAtual -= (rand.Intn(2))
+			temperaturaAtual -= (rand.Intn(2)+1)
 		} else {
 			// Se o ar está desligado, a temperatura sobe (pode não subir ou subir enntre +1 a +3)
-			temperaturaAtual += (rand.Intn(4))
+			temperaturaAtual += (rand.Intn(3)+1)
 		}
 
 		// Limites 
